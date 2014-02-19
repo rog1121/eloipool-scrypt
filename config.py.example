@@ -44,7 +44,9 @@ IdleSleepTime = 0.1
 ### Settings relating to reward generation
 
 # Address to generate rewards to
-TrackerAddr = 'LTCJwziUvKaESEqnsLyXPgYAksKT3zBUdb'
+# NVC Testnet
+TrackerAddr = 'mwqwRzSTWEi82Hs7qnbRNDH8zBjNkU8S4H'
+
 
 # Coinbaser command to control reward delegation
 # NOTE: This example donates 1% of block rewards to Luke-Jr for Eloipool development
@@ -67,9 +69,12 @@ DelayLogForUpstream = True
 UpstreamBitcoindNode = ('127.0.0.1', 9333)
 
 # Network ID for the primary blockchain
+# Novacoin
+#UpstreamNetworkId = b'\xE4\xE8\xE9\xE5'
+# Novacoin TESTNET
+UpstreamNetworkId = b'\xCD\xF2\xC0\xEF'
 
-# Litecoin: b'\xFB\xC0\xB6\xDB'         # 0xfb, 0xc0, 0xb6, 0xdb
-UpstreamNetworkId = b'\xFB\xC0\xB6\xDB'
+Scrypt= True
 
 # Secret username allowed to use setworkaux
 #SecretUser = ""
