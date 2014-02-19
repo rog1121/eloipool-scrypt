@@ -31,6 +31,7 @@ class Txn:
 	def new(cls):
 		o = cls()
 		o.version = 1
+		o.timestamp = 0
 		o.inputs = []
 		o.outputs = []
 		o.locktime = 0
@@ -42,6 +43,9 @@ class Txn:
 			sigScript = bitcoin.script.encodeUNum(height) + sigScript
 		self.inputs = ( ((_nullprev, 0xffffffff), sigScript, seqno), )
 	
+	def setTimestamp(self,timestamp):
+		self.timestamp = timestamp
+	
 	def addInput(self, prevout, sigScript, seqno = 0xffffffff):
 		self.inputs.append( (prevout, sigScript, seqno) )
 	
@@ -50,14 +54,15 @@ class Txn:
 	
 	def disassemble(self, retExtra = False):
 		self.version = unpack('<L', self.data[:4])[0]
-		rc = [4]
+		self.timestamp = unpack('<L', self.data[4:8])[0]
+		rc = [8]
 		
-		(inputCount, data) = varlenDecode(self.data[4:], rc)
+		(inputCount, data) = varlenDecode(self.data[8:], rc)
 		inputs = []
 		for i in range(inputCount):
-			prevout = (data[:32], unpack('<L', data[32:36])[0])
-			rc[0] += 36
-			(sigScriptLen, data) = varlenDecode(data[36:], rc)
+			prevout = (data[:36], unpack('<L', data[36:40])[0])
+			rc[0] += 40
+			(sigScriptLen, data) = varlenDecode(data[40:], rc)
 			sigScript = data[:sigScriptLen]
 			seqno = unpack('<L', data[sigScriptLen:sigScriptLen + 4])[0]
 			data = data[sigScriptLen + 4:]
@@ -95,6 +100,7 @@ class Txn:
 	
 	def assemble(self):
 		data = pack('<L', self.version)
+		data += pack('<L', self.timestamp)
 		
 		inputs = self.inputs
 		data += varlenEncode(len(inputs))
@@ -118,6 +124,7 @@ class Txn:
 		self.txid = dblsha(self.data)
 
 # Txn tests
+'''
 def _test():
 	d = b'\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 	t = Txn(d)
@@ -144,3 +151,4 @@ def _test():
 	assert t.txid == b'n\xb9\xdc\xef\xe9\xdb(R\x8dC~-\xef~\x88d\x15+X\x13&\xb7\xbc$\xb1h\xf3g=\x9b~V'
 
 _test()
+'''
