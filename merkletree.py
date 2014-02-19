@@ -66,6 +66,7 @@ class MerkleTree:
 		return self.withFirst(self.data[0])
 
 # MerkleTree tests
+'''
 def _test():
 	from binascii import b2a_hex
 	mt = MerkleTree([None] + [bytes.fromhex(a) for a in [
@@ -102,3 +103,4 @@ def _test():
 	assert m.detail == [dh, step, mr]
 
 _test()
+'''

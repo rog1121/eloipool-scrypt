@@ -188,8 +188,8 @@ def submitGotwork(info):
 
 def clampTarget(target, DTMode):
 	# ShareTarget is the minimum
-	if target is None or target > config.ShareTarget / 64:
-		target = config.ShareTarget / 64
+	if target is None or target > config.ShareTarget:
+		target = config.ShareTarget / 16
 	
 	# Never target above the network, as we'd lose blocks
 	if target < networkTarget:

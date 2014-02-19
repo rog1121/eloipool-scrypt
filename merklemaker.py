@@ -45,6 +45,7 @@ def assembleBlock(blkhdr, txlist):
 	payload += varlenEncode(len(txlist))
 	for tx in txlist:
 		payload += tx.data
+	payload += b'\0'
 	return payload
 
 class merkleMaker(threading.Thread):
@@ -109,8 +110,8 @@ class merkleMaker(threading.Thread):
 		self.nextMerkleUpdate = 0
 	
 	def createClearMerkleTree(self, height):
-		subsidy = 5000000000 >> (height // 840000)
-
+		subsidy = self.access.getsubsidy()
+		
 		cbtxn = self.makeCoinbaseTxn(subsidy, False)
 		cbtxn.assemble()
 		return MerkleTree([cbtxn])
@@ -316,7 +317,7 @@ class merkleMaker(threading.Thread):
 		
 		self._makeBlockSafe(MP, txnlist, txninfo)
 		
-		cbtxn = self.makeCoinbaseTxn(MP['coinbasevalue'])
+		cbtxn = self.makeCoinbaseTxn(MP['coinbasevalue'], MP['curtime'])
 		cbtxn.setCoinbase(b'\0\0')
 		cbtxn.assemble()
 		txnlist.insert(0, cbtxn.data)
@@ -530,6 +531,7 @@ class merkleMaker(threading.Thread):
 		return (height, mt, cb, prevBlock, bits, rollPrevBlk)
 
 # merkleMaker tests
+'''
 def _test():
 	global now
 	now = 1337039788
@@ -586,3 +588,4 @@ def _test():
 	assert MBS() == (MPx, txnlist[:3], txninfo[:3])
 
 _test()
+'''
