@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 # Eloipool - Python Bitcoin pool server
 # Copyright (C) 2011-2012  Luke Dashjr <luke-jr+eloipool@utopios.org>
+# Portions written by Peter Leurs <kinlo@triplemining.com>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
@@ -25,14 +26,39 @@ if not hasattr(config, 'ShareTarget'):
 
 
 import logging
+import logging.handlers
 
-if len(logging.root.handlers) == 0:
+rootlogger = logging.getLogger(None)
+logformat = getattr(config, 'LogFormat', '%(asctime)s\t%(name)s\t%(levelname)s\t%(message)s')
+logformatter = logging.Formatter(logformat)
+if len(rootlogger.handlers) == 0:
 	logging.basicConfig(
-		format='%(asctime)s\t%(name)s\t%(levelname)s\t%(message)s',
+        format=logformat,
 		level=logging.DEBUG,
 	)
-	for infoOnly in ('checkShare', 'JSONRPCHandler', 'merkleMaker', 'Waker for JSONRPCServer', 'JSONRPCServer', 'StratumServer', 'Waker for StratumServer', 'WorkLogPruner'):
+    for infoOnly in (
+            'checkShare',
+            'getTarget',
+            'JSONRPCHandler',
+            'JSONRPCServer',
+            'merkleMaker',
+            'StratumServer',
+            'Waker for JSONRPCServer',
+            'Waker for StratumServer',
+            'WorkLogPruner'
+    ):
 		logging.getLogger(infoOnly).setLevel(logging.INFO)
+if getattr(config, 'LogToSysLog', False):
+    sysloghandler = logging.handlers.SysLogHandler(address='/dev/log')
+    rootlogger.addHandler(sysloghandler)
+if hasattr(config, 'LogFile'):
+    if isinstance(config.LogFile, str):
+        filehandler = logging.FileHandler(config.LogFile)
+    else:
+        filehandler = logging.handlers.TimedRotatingFileHandler(**config.LogFile)
+    filehandler.setFormatter(logformatter)
+    rootlogger.addHandler(filehandler)
+
 
 def RaiseRedFlags(reason):
 	logging.getLogger('redflag').critical(reason)
@@ -40,10 +66,12 @@ def RaiseRedFlags(reason):
 
 
 from bitcoin.node import BitcoinLink, BitcoinNode
+
 bcnode = BitcoinNode(config.UpstreamNetworkId)
 bcnode.userAgent += b'Eloipool:0.1/'
 
 import jsonrpc
+
 UpstreamBitcoindJSONRPC = jsonrpc.ServiceProxy(config.UpstreamURI)
 
 
@@ -104,6 +132,7 @@ DupeShareHACK = {}
 
 server = None
 stratumsrv = None
+
 def updateBlocks():
 	server.wakeLongpoll()
 	stratumsrv.updateJob()
@@ -157,12 +186,13 @@ MM.onBlockUpdate = updateBlocks
 
 from binascii import b2a_hex
 from copy import deepcopy
-from math import log
+from math import ceil, log
 from merklemaker import MakeBlockHeader
 from struct import pack, unpack
 import threading
 from time import time
-from util import PendingUpstream, RejectedShare, bdiff1target, dblsha, PoWHash, LEhash2int, swap32, target2bdiff, target2pdiff
+from util import PendingUpstream, RejectedShare, bdiff1target, dblsha, PoWHash, LEhash2int, swap32, target2bdiff, \
+    target2pdiff
 import jsonrpc
 import traceback
 
@@ -287,6 +317,7 @@ def getExistingStratumJob(jobid):
 	return (wld[0], wld)
 
 loggersShare = []
+authenticators = []
 
 RBDs = []
 RBPs = []
@@ -373,6 +404,18 @@ def buildStratumData(share, merkleroot):
 	
 	share['data'] = data
 	return data
+
+
+def IsJobValid(wli, wluser=None):
+    if wluser not in workLog:
+        return False
+    if wli not in workLog[wluser]:
+        return False
+    (wld, issueT) = workLog[wluser][wli]
+    if time() < issueT - 120:
+        return False
+    return True
+
 
 def checkShare(share):
 	shareTime = share['time'] = time()
@@ -553,6 +596,12 @@ def logShare(share):
 	for i in loggersShare:
 		i.logShare(share)
 
+def checkAuthentication(username, password):
+	for i in authenticators:
+		if i.checkAuthentication(username, password):
+			return True
+	return False
+		
 def receiveShare(share):
 	# TODO: username => userid
 	try:
@@ -727,6 +776,7 @@ import interactivemode
 from networkserver import NetworkListener
 import threading
 import sharelogging
+import authentication
 from stratumserver import StratumServer
 import imp
 
@@ -773,6 +823,21 @@ if __name__ == "__main__":
 		except:
 			logging.getLogger('sharelogging').error("Error setting up share logger %s: %s", name,  sys.exc_info())
 
+
+	if not hasattr(config, 'Authentication'):
+	config.Authentication = ({'module': 'allowall'},)
+	
+	for i in config.Authentication:
+	name = i['module']
+	parameters = i
+	try:
+	fp, pathname, description = imp.find_module(name, authentication.__path__)
+	m = imp.load_module(name, fp, pathname, description)
+	lo = getattr(m, name)(**parameters)
+	authenticators.append(lo)
+	except:
+	logging.getLogger('authentication').error("Error setting up authentication module %s: %s", name, sys.exc_info())
+	
 	LSbc = []
 	if not hasattr(config, 'BitcoinNodeAddresses'):
 		config.BitcoinNodeAddresses = ()
@@ -815,7 +880,9 @@ if __name__ == "__main__":
 	stratumsrv.getExistingStratumJob = getExistingStratumJob
 	stratumsrv.receiveShare = receiveShare
 	stratumsrv.getTarget = getTarget
+	stratumsrv.checkAuthentication = checkAuthentication
 	stratumsrv.defaultTarget = config.ShareTarget
+    stratumsrv.IsJobValid = IsJobValid
 	if not hasattr(config, 'StratumAddresses'):
 		config.StratumAddresses = ()
 	for a in config.StratumAddresses:
