@@ -825,7 +825,7 @@ if __name__ == "__main__":
 
 
 	if not hasattr(config, 'Authentication'):
-	config.Authentication = ({'module': 'allowall'},)
+	   config.Authentication = ({'module': 'allowall'},)
 	
 	for i in config.Authentication:
 	   name = i['module']
