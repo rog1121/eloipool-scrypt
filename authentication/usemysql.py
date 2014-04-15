@@ -25,14 +25,13 @@ class usemysql:
         self.dbc = self.conn.cursor()
         print("Connected to mysql\n")
     def checkAuthentication(self, user, password) :
-        print("Checking Authentication\n")
+        print("Checking Authentication for "+user+":"+password)
         try :
             self.dbc.execute(
                 """SELECT password
 FROM pool_worker
 WHERE username = '%s';""" % (user,))
             response = self.dbc.fetchone()
-            print(repr(response))
             if response == None :
                 print("Not connected!  Reconnecting now!\n")                
                 self.connect()
