@@ -17,7 +17,7 @@ import config, pymysql, traceback
 class usemysql:
     def __init__(self, **k) :
         print("Got to __init__\n")
-        self.settings = config.ShareLogging[1]['dbopts']
+        self.settings = config.ShareLogging[0]['dbopts']
         self.connect()
  
     def connect(self) :
